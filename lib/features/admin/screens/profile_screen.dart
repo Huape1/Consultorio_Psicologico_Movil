@@ -1,10 +1,15 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/color.dart';
 import '../../../shared/widgets/avatar.dart';
 import '../../../shared/widgets/custom_card.dart';
 import '../../../shared/widgets/custom_button.dart';
+import '../../../shared/widgets/change_password_screen.dart';
 import '../../../core/api/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../data/repositories/admin_repository.dart';
+import '../screens/edit_admin_profile_screen.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
@@ -15,6 +20,7 @@ class AdminProfileScreen extends StatefulWidget {
 
 class _AdminProfileScreenState extends State<AdminProfileScreen> {
   final ApiService _apiService = ApiService();
+  final AdminRepository _repository = AdminRepository();
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
 
@@ -23,8 +29,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     super.initState();
     _fetchProfile();
   }
-
-  // --- LÓGICA DE BACKEND ---
 
   Future<void> _fetchProfile() async {
     try {
@@ -39,135 +43,101 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     }
   }
 
-  Future<void> _updateProfile(Map<String, dynamic> data) async {
-    setState(() => _isLoading = true);
-    try {
-      // Endpoint sugerido para actualizar datos
-      await _apiService.postRequest('/auth/profile/update/', data);
-      await _fetchProfile(); // Recargamos datos frescos
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Perfil actualizado con éxito")),
-        );
-      }
-    } catch (e) {
-      debugPrint("Error al actualizar: $e");
-      setState(() => _isLoading = false);
-    }
-  }
+  // --- LÓGICA DE FOTO (TU CÓDIGO RECUPERADO) ---
 
-  Future<void> _handleLogout() async {
-    bool confirm = await _showLogoutDialog() ?? false;
-    if (!confirm) return;
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-      }
-    } catch (e) {
-      debugPrint("Error al cerrar sesión: $e");
-    }
-  }
-
-  // --- INTERFAZ DE USUARIO (DIÁLOGOS) ---
-
-  void _showInfoDialog() {
-    final nameController = TextEditingController(text: _userData?['full_name']);
-    final phoneController = TextEditingController(text: _userData?['phone']);
-
-    showDialog(
+  void _showPickerOptions() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Editar Información"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
+      builder: (context) => SafeArea(
+        child: Wrap(
           children: [
-            TextField(
-                controller: nameController,
-                decoration:
-                    const InputDecoration(labelText: "Nombre completo")),
-            TextField(
-                controller: phoneController,
-                decoration: const InputDecoration(labelText: "Teléfono")),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () {
-              _updateProfile({
-                'full_name': nameController.text,
-                'phone': phoneController.text
-              });
-              Navigator.pop(context);
-            },
-            child: const Text("Guardar"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSecurityDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Seguridad"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Correo electrónico:",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            Text(_userData?['email'] ?? "",
-                style: const TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 16),
-            const TextField(
-              obscureText: true,
-              decoration: InputDecoration(labelText: "Nueva Contraseña"),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Galería'),
+              onTap: () {
+                Navigator.pop(context);
+                _changePhoto(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Cámara'),
+              onTap: () {
+                Navigator.pop(context);
+                _changePhoto(ImageSource.camera);
+              },
             ),
           ],
         ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cerrar")),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Actualizar")),
-        ],
       ),
     );
   }
 
-  Future<bool?> _showLogoutDialog() {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Cerrar Sesión"),
-        content: const Text("¿Estás seguro de que quieres salir?"),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("Cancelar")),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Salir", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
+  Future<void> _changePhoto(ImageSource source) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: source, 
+      imageQuality: 50
     );
+
+    if (pickedFile != null) {
+      setState(() => _isLoading = true);
+      // Usamos el repositorio de Admin para subir la foto
+      final success = await _repository.updateProfile(
+        fields: {}, // No enviamos textos, solo la foto
+        imageFile: File(pickedFile.path),
+      );
+      
+      if (success) {
+        _fetchProfile(); // Recargamos para ver la nueva foto
+      } else {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Error al subir la foto"))
+          );
+        }
+      }
+    }
+  }
+
+  // --- NAVEGACIÓN Y CIERRE DE SESIÓN ---
+
+  void _goToEditProfile() async {
+    if (_userData == null) return;
+
+    // Mapeo preventivo para que EditAdminProfileScreen no reciba nulos inesperados
+    final Map<String, dynamic> mappedData = {
+      'nombre': _userData!['nombre'] ?? _userData!['full_name']?.split(' ')[0] ?? '',
+      'apellido1': _userData!['apellido1'] ?? '',
+      'apellido2': _userData!['apellido2'] ?? '',
+      'email': _userData!['email'] ?? '',
+      'phone': _userData!['phone'] ?? '',
+      'genero': _userData!['genero'] ?? 'M', // Valor por defecto seguro
+      'photo': _userData!['photo'],
+    };
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditAdminProfileScreen(userData: mappedData)),
+    );
+    if (result == true) _fetchProfile();
+  }
+
+  Future<void> _handleLogout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-          body: Center(
-              child: CircularProgressIndicator(color: AppColors.primary)));
+        body: Center(child: CircularProgressIndicator(color: AppColors.primary))
+      );
     }
 
     final String name = _userData?['full_name'] ?? "Administrador";
@@ -184,22 +154,41 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           child: Column(
             children: [
               const SizedBox(height: 40),
-              Avatar(name: name, imageUrl: photoUrl, size: 'xlarge'),
+              // AVATAR CON TU STACK DE CÁMARA
+              Center(
+                child: Stack(
+                  children: [
+                    Avatar(name: name, imageUrl: photoUrl, size: 'xlarge'),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: _showPickerOptions, // Tu función de opciones
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary, 
+                            shape: BoxShape.circle
+                          ),
+                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
-              Text(name,
-                  style: const TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.bold)),
-              Text(email,
-                  style: const TextStyle(color: AppColors.textSecondary)),
+              Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(email, style: const TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 32),
               CustomCard(
                 child: Column(
                   children: [
-                    _buildOption(Icons.person_outline, "Información Personal",
-                        _showInfoDialog),
+                    _buildOption(Icons.person_outline, "Información Personal", _goToEditProfile),
                     const Divider(),
-                    _buildOption(Icons.security, "Seguridad y Contraseña",
-                        _showSecurityDialog),
+                    _buildOption(Icons.security, "Seguridad y Contraseña", () {
+                      Navigator.push(context, MaterialPageRoute(builder: (c) => const ChangePasswordScreen()));
+                    }),
                   ],
                 ),
               ),
@@ -207,11 +196,28 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               CustomButton(
                 title: "Cerrar Sesión",
                 variant: 'outline',
-                onPress: _handleLogout,
+                onPress: _confirmLogout,
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Cerrar Sesión"),
+        content: const Text("¿Estás seguro de que deseas salir?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          TextButton(
+            onPressed: _handleLogout, 
+            child: const Text("Salir", style: TextStyle(color: Colors.red))
+          ),
+        ],
       ),
     );
   }

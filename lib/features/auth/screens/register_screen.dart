@@ -60,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // 4. Lógica de Registro
   void _handleRegister() async {
+    // 1. Validaciones previas de UI
     if (!acceptTerms) {
       _showSnackBar('Debes aceptar los términos y condiciones');
       return;
@@ -70,8 +71,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (_nameController.text.trim().isEmpty || 
+        _paternoController.text.trim().isEmpty || 
+        _phoneController.text.trim().isEmpty || 
+        _emailController.text.trim().isEmpty) {
+      _showSnackBar('Por favor, llena todos los campos obligatorios (*)');
+      return;
+    }
+
+    if (_passwordController.text.length < 8) {
+      _showSnackBar('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
     if (_passwordController.text != _confirmPasswordController.text) {
       _showSnackBar('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (selectedGender == 'Seleccionar género') {
+      _showSnackBar('Por favor, selecciona tu género');
       return;
     }
 
@@ -81,7 +100,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Formatear fecha para Django (YYYY-MM-DD)
       String formattedDate = "${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}";
 
-      final success = await _authRepository.registerPaciente(
+      // Llamada al repositorio
+      final String? errorMessage = await _authRepository.registerPaciente(
         nombre: _nameController.text.trim(),
         primerApellido: _paternoController.text.trim(),
         segundoApellido: _maternoController.text.trim(),
@@ -93,15 +113,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
         genero: selectedGender,
       );
 
-      if (success) {
+      if (errorMessage == null) {
+        // REGISTRO EXITOSO
         if (!mounted) return;
-        _showSnackBar('¡Registro exitoso! Cuenta activa.', isError: false);
+        _showSnackBar('¡Registro exitoso! Ya puedes iniciar sesión.', isError: false);
+        
+        // Esperamos un segundo para que el usuario vea el mensaje verde y redirigimos
+        await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
         Navigator.pushReplacementNamed(context, '/login');
       } else {
-        _showSnackBar('Error en el registro. El correo o teléfono ya podrían existir.');
+        // REGISTRO FALLIDO: Mostramos el error que nos dio el servidor
+        // Limpiamos un poco el mensaje si viene con códigos HTTP
+        String friendlyError = errorMessage;
+        if (errorMessage.contains('400')) friendlyError = "El correo o teléfono ya están registrados";
+        
+        _showSnackBar(friendlyError);
       }
     } catch (e) {
-      _showSnackBar('Error de conexión: $e');
+      _showSnackBar('Error de conexión: No se pudo contactar al servidor');
+      print("Error detallado: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

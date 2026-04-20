@@ -1,4 +1,6 @@
 import '../../core/api/api_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 
 class PacienteRepository {
   // Instanciamos el ApiService que ya tienes para hacer las peticiones
@@ -106,4 +108,24 @@ class PacienteRepository {
       return false;
     }
   }
+
+  Future<bool> updateProfileWithImage(Map<String, String> fields, File? imageFile) async {
+  try {
+    String? token = await _apiService.getToken(); 
+    var uri = Uri.parse('${ApiService.baseUrl}/paciente/actualizar-perfil/'); // Ajusta tu ruta
+    
+    var request = http.MultipartRequest('POST', uri);
+    if (token != null) request.headers['Authorization'] = 'Token $token';
+    
+    request.fields.addAll(fields);
+    if (imageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath('foto_perfil', imageFile.path));
+    }
+    
+    var response = await request.send();
+    return response.statusCode == 200;
+  } catch (e) {
+    return false;
+  }
+}
 }

@@ -11,14 +11,9 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _repo = PsicologoRepository();
-
-  final _nombreCtrl = TextEditingController();
-  final _apellidoCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _telCtrl = TextEditingController();
-
+  final _presentacionCtrl = TextEditingController();
+  Map<String, dynamic>? _userData;
   bool _isLoading = true;
 
   @override
@@ -31,38 +26,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final data = await _repo.getPerfilData();
     if (data != null && mounted) {
       setState(() {
-        // Usamos las llaves simples que definimos en la vista corregida
-        _nombreCtrl.text = data['nombre'] ?? "";
-        _apellidoCtrl.text = data['apellido'] ?? "";
-        _emailCtrl.text = data['email'] ?? "";
-        _telCtrl.text = data['telefono'] ?? "";
+        _userData = data;
+        _presentacionCtrl.text = data['presentacion'] ?? "";
         _isLoading = false;
       });
     }
   }
 
   void _handleUpdate() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
+    final success = await _repo.updateProfile({
+      "presentacion": _presentacionCtrl.text,
+    });
 
-      // CORRECCIÓN: Se agregó .updateProfile y se usan llaves que coinciden con el backend
-      final success = await _repo.updateProfile({
-        "nombre": _nombreCtrl.text,
-        "apellido": _apellidoCtrl.text,
-        "email": _emailCtrl.text,
-        "telefono": _telCtrl.text,
-      });
-
-      if (mounted) {
-        setState(() => _isLoading = false);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Perfil actualizado correctamente")));
-          Navigator.pop(context);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Error al actualizar el perfil")));
-        }
+    if (mounted) {
+      setState(() => _isLoading = false);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Presentación actualizada")));
+        Navigator.pop(context);
       }
     }
   }
@@ -72,8 +53,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Editar Perfil",
-            style: TextStyle(color: AppColors.textPrimary)),
+        title: const Text("Información Personal", style: TextStyle(color: AppColors.textPrimary)),
         backgroundColor: AppColors.background,
         elevation: 0,
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
@@ -82,50 +62,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildTextField(
-                        "Nombre", _nombreCtrl, Icons.person_outline),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                        "Apellido", _apellidoCtrl, Icons.person_outline),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                        "Correo Electrónico", _emailCtrl, Icons.email_outlined,
-                        isEmail: true),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                        "Teléfono", _telCtrl, Icons.phone_android_outlined,
-                        isPhone: true),
-                    const SizedBox(height: 32),
-                    CustomButton(
-                      title: "Guardar Cambios",
-                      onPress: _handleUpdate,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildReadOnlyField("Nombre Completo", _userData?['nombre_completo']),
+                  _buildReadOnlyField("Género", _userData?['genero']),
+                  _buildReadOnlyField("Cédula Profesional", _userData?['cedula']),
+                  _buildReadOnlyField("Especialidad", _userData?['especialidad']),
+                  const SizedBox(height: 20),
+                  const Text("Presentación", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _presentacionCtrl,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: "Escribe tu presentación profesional...",
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 32),
+                  CustomButton(title: "Guardar Cambios", onPress: _handleUpdate),
+                ],
               ),
             ),
     );
   }
 
-  Widget _buildTextField(
-      String label, TextEditingController controller, IconData icon,
-      {bool isEmail = false, bool isPhone = false}) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: isEmail
-          ? TextInputType.emailAddress
-          : (isPhone ? TextInputType.phone : TextInputType.text),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+  Widget _buildReadOnlyField(String label, String? value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 4),
+          Text(value ?? "No disponible", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          const Divider(),
+        ],
       ),
-      validator: (val) =>
-          val == null || val.isEmpty ? "Este campo es obligatorio" : null,
     );
   }
 }

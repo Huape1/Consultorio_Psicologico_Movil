@@ -11,115 +11,74 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _repo = PacienteRepository();
-
-  final _nombreCtrl = TextEditingController();
-  final _apellidoCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
   final _telCtrl = TextEditingController();
-
+  Map<String, dynamic>? _data;
   bool _isLoading = true;
+  final PacienteRepository _repo = PacienteRepository();
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentData();
+    _loadData();
   }
 
-  void _loadCurrentData() async {
+  void _loadData() async {
     final data = await _repo.getPerfilCompleto();
     if (data != null && mounted) {
       setState(() {
-        _nombreCtrl.text = data['nombre'] ?? "";
-        _apellidoCtrl.text = data['apellido'] ?? "";
-        _emailCtrl.text = data['email'] ?? "";
+        _data = data;
         _telCtrl.text = data['telefono'] ?? "";
         _isLoading = false;
       });
     }
   }
 
-  void _handleUpdate() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
-      final success = await _repo.updateProfile({
-        "nombre": _nombreCtrl.text,
-        "apellido": _apellidoCtrl.text,
-        "email": _emailCtrl.text,
-        "telefono": _telCtrl.text,
-      });
-
-      if (mounted) {
-        setState(() => _isLoading = false);
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text("Perfil actualizado correctamente")));
-          Navigator.pop(context); // Regresa al perfil
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text("Editar Perfil",
-            style: TextStyle(color: AppColors.textPrimary)),
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    _buildTextField(
-                        "Nombre", _nombreCtrl, Icons.person_outline),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                        "Apellido", _apellidoCtrl, Icons.person_outline),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                        "Correo Electrónico", _emailCtrl, Icons.email_outlined,
-                        isEmail: true),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                        "Teléfono", _telCtrl, Icons.phone_android_outlined,
-                        isPhone: true),
-                    const SizedBox(height: 32),
-                    CustomButton(
-                      title: "Guardar Cambios",
-                      onPress: _handleUpdate,
-                    ),
-                  ],
+      appBar: AppBar(title: const Text("Datos Personales")),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                _readOnlyField("Nombre", "${_data?['nombre']} ${_data?['apellido']} ${_data?['segundo_apellido']}"),
+                _readOnlyField("Género", _data?['genero']),
+                _readOnlyField("Correo", _data?['email']),
+                _readOnlyField("Fecha de Cumpleaños", _data?['fecha_nacimiento']),
+                const SizedBox(height: 10),
+                const Divider(),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _telCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: "Teléfono (Editable)",
+                    prefixIcon: const Icon(Icons.phone),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 30),
+                CustomButton(
+                  title: "Guardar Teléfono",
+                  onPress: () async {
+                    setState(() => _isLoading = true);
+                    final success = await _repo.updateProfile({"telefono": _telCtrl.text});
+                    if (success) Navigator.pop(context);
+                    else setState(() => _isLoading = false);
+                  },
+                )
+              ],
             ),
+          ),
     );
   }
 
-  Widget _buildTextField(
-      String label, TextEditingController controller, IconData icon,
-      {bool isEmail = false, bool isPhone = false}) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: isEmail
-          ? TextInputType.emailAddress
-          : (isPhone ? TextInputType.phone : TextInputType.text),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      validator: (val) =>
-          val == null || val.isEmpty ? "Este campo es obligatorio" : null,
+  Widget _readOnlyField(String label, String? value) {
+    return ListTile(
+      title: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+      subtitle: Text(value ?? "No disponible", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black)),
     );
   }
 }

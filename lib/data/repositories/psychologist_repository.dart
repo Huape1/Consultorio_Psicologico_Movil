@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import '../../core/api/api_service.dart';
 import '../../core/models/psicologo.dart';
+import 'package:http/http.dart' as http;
 
 class PsicologoRepository {
   final ApiService _apiService = ApiService();
@@ -68,4 +70,32 @@ class PsicologoRepository {
       return null;
     }
   }
+  Future<bool> updateProfileWithImage(Map<String, String> fields, File? imageFile) async {
+  try {
+    String? token = await _apiService.getToken(); 
+    var uri = Uri.parse('${ApiService.baseUrl}/psicologo/actualizar-perfil/');
+    
+    var request = http.MultipartRequest('POST', uri);
+    
+    // IMPORTANTE: Usa 'Token' en lugar de 'Bearer' si así está en tu ApiService
+    if (token != null) {
+      request.headers['Authorization'] = 'Token $token';
+    }
+    
+    request.fields.addAll(fields);
+    
+    if (imageFile != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'foto_perfil', 
+        imageFile.path,
+      ));
+    }
+    
+    var response = await request.send();
+    return response.statusCode == 200;
+  } catch (e) {
+    print("Error: $e");
+    return false;
+  }
+}
 }

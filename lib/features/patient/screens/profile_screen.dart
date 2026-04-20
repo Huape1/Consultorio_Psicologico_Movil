@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/color.dart';
 import '../../../shared/widgets/avatar.dart';
 import '../../../data/repositories/patient_repository.dart';
+import '../../../shared/widgets/change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -59,12 +62,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Por ahora, redirigimos al inicio (Login)
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
+Future<void> _changePhoto(ImageSource source) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: source, imageQuality: 50);
+
+    if (pickedFile != null) {
+      setState(() => _isLoading = true);
+      final success = await _repository.updateProfileWithImage({}, File(pickedFile.path));
+      if (success) _loadProfileData();
+      else setState(() => _isLoading = false);
+    }
+  }
+
+  void _showPickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(leading: const Icon(Icons.photo_library), title: const Text('Galería'), onTap: () { Navigator.pop(context); _changePhoto(ImageSource.gallery); }),
+            ListTile(leading: const Icon(Icons.camera_alt), title: const Text('Cámara'), onTap: () { Navigator.pop(context); _changePhoto(ImageSource.camera); }),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -73,15 +99,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             const SizedBox(height: 60),
             Center(
-                child: Avatar(
-              name: fullName,
-              size: 'large',
-              // image: fotoUrl != null ? NetworkImage(fotoUrl!) : null, // Si tu widget Avatar soporta red
-            )),
+              child: Stack(
+                children: [
+                  Avatar(name: fullName, size: 'large', imageUrl: fotoUrl),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: GestureDetector(
+                      onTap: _showPickerOptions,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
-            Text(fullName,
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(fullName, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             Text(email, style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 30),
             Padding(
@@ -92,8 +129,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: () =>
                           Navigator.pushNamed(context, '/edit-profile')),
                   _profileOption(Icons.security, "Seguridad y Contraseña",
-                      onTap: () =>
-                          Navigator.pushNamed(context, '/change-password')),
+                      onTap:  () {
+                        Navigator.push(context, MaterialPageRoute(builder: (c) => const ChangePasswordScreen()));
+                      }),
                   _profileOption(Icons.help_outline, "Ayuda y Soporte",
                       onTap: () => _makePhoneCall("6648088464")),
                   const SizedBox(height: 20),

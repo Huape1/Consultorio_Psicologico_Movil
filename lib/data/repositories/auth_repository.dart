@@ -13,13 +13,12 @@ class AuthRepository {
           'correo': correo,
           'password': password,
         },
+        isPublic: true, // El login es público
       );
 
-      // ESTO ES CLAVE: Mira tu consola de debug en VS Code / Android Studio
       print("Respuesta cruda de Django: $data");
 
       if (data == null || data is! Map<String, dynamic>) {
-        print("Error: La respuesta no es un Mapa válido");
         return null;
       }
 
@@ -31,7 +30,7 @@ class AuthRepository {
   }
 
   // MÉTODO PARA REGISTRO DE PACIENTE
-  Future<bool> registerPaciente({
+  Future<String?> registerPaciente({
     required String nombre,
     required String primerApellido,
     required String segundoApellido,
@@ -43,30 +42,37 @@ class AuthRepository {
     required String genero,
   }) async {
     try {
-      // 1. Quitamos /api/ del path porque el ApiService ya tiene baseUrl con /api
-      await _apiService.postRequest('/registro/', {
-        'nombre': nombre,
-        'primer_apellido': primerApellido,
-        'segundo_apellido': segundoApellido,
-        'telefono': telefono,
-        'fecha_nacimiento': fechaNacimiento,
-        'correo': correo,
-        'password': password,
-        'confirm_password': confirmPassword,
-        'genero': genero,
-      });
+      final response = await _apiService.postRequest(
+        '/registro-api/',
+        {
+          'nombre': nombre,
+          'primer_apellido': primerApellido,
+          'segundo_apellido': segundoApellido,
+          'telefono': telefono,
+          'fecha_nacimiento': fechaNacimiento,
+          'correo': correo,
+          'password': password,
+          'confirm_password': confirmPassword,
+          'genero': genero,
+        },
+        isPublic: true, // ¡ESTO ES LO MÁS IMPORTANTE! Evita el error 403
+      );
 
-      // 2. Si no hubo excepción, el registro fue exitoso (201)
-      return true;
+      if (response != null) {
+        return null; // Éxito
+      }
+      
+      return "Respuesta inesperada del servidor";
     } catch (e) {
       print("Error en AuthRepository (Register): $e");
-      return false;
+      // Limpiamos el mensaje de "Exception: " para el usuario
+      return e.toString().replaceAll("Exception: ", "");
     }
   }
 
   Future<Map<String, dynamic>?> getProfileData() async {
     try {
-      // El ApiService ya debería estar mandando el Token que guardamos en el login
+      // El perfil SÍ requiere token, por eso no mandamos isPublic
       final data = await _apiService.getRequest('/paciente/perfil/');
       return data;
     } catch (e) {

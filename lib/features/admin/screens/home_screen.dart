@@ -43,19 +43,18 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     setState(() => _isLoading = true);
     try {
       final data = await _apiService.getRequest('/admin/stats/');
-
       setState(() {
-        // Asignamos cantidades
         stats = {
           'psychologists': data['activePsychologists'],
           'patients': data['registeredPatients'],
           'messages': data['pendingMessages'],
           'appointments': data['todayAppointments'],
+          // Guardamos datos del header
+          'adminName': data['currentAdminName'],
+          'adminPhoto': data['currentAdminPhoto'],
         };
-        // ASIGNAMOS LISTAS REALES
         recentMessages = data['recentMessages'] ?? [];
         adminList = data['adminList'] ?? [];
-
         _isLoading = false;
       });
     } catch (e) {
@@ -108,19 +107,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(8)),
-              child: const Text("FYM",
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(8)),
+              child: const Text("FYM", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(width: 12),
-            const Text("Panel Admin",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text("Panel Admin", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           ],
         ),
-        // Aquí podrías usar el nombre real del admin logueado
-        const Avatar(name: "Admin", size: 'medium'),
+        // Usamos los datos reales del admin logueado
+        Avatar(
+          name: stats['adminName'] ?? "Admin", 
+          imageUrl: stats['adminPhoto'], // URL real desde el backend
+          size: 'medium'
+        ),
       ],
     );
   }
@@ -220,27 +220,26 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     bool isHigh = msg['isHigh'] ?? false;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: AppColors.divider))),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.divider))),
       child: Row(
         children: [
-          Icon(isHigh ? Icons.mark_chat_unread : Icons.chat_bubble_outline,
-              color: isHigh ? AppColors.warning : AppColors.primary, size: 20),
+          // Cambiamos el icono por el Avatar del usuario que envió el mensaje
+          Avatar(
+            name: msg['user'] ?? 'U',
+            imageUrl: msg['photo'],
+            size: 'small',
+          ),
           const SizedBox(width: 12),
           Expanded(
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(msg['user'] ?? 'Desconocido',
-                    style: const TextStyle(fontWeight: FontWeight.w500)),
-                Text(msg['content'] ?? '',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(msg['user'] ?? 'Desconocido', style: const TextStyle(fontWeight: FontWeight.w500)),
+                  Text(msg['content'] ?? '', 
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
-          Text(msg['timestamp'] ?? '',
-              style: const TextStyle(color: AppColors.textLight, fontSize: 11)),
+          Text(msg['timestamp'] ?? '', style: const TextStyle(color: AppColors.textLight, fontSize: 11)),
         ],
       ),
     );

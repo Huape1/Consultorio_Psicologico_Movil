@@ -16,6 +16,11 @@ dependencies:
     sdk: flutter
   shared_preferences: ^2.5.5
   url_launcher: ^6.3.2
+  image_picker: ^1.2.1
+  local_auth: ^3.0.1
+  local_auth_android: ^2.0.8
+  flutter_native_splash: ^2.4.7
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -24,3 +29,21 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+flutter_native_splash:
+  color: "#FFFFFF" # El color de fondo de la pantalla de carga (usa el de AppColors.background)
+  image: assets/images/logo_app.jpg # La ruta de tu logo
+  
+  android_12:
+    image: assets/images/logo_app.jpg # Android 12+ requiere configuración especial
+    color: "#FFFFFF"
+    
+  ios: true
+  android: true
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/logo_app.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/logo_app.png"
